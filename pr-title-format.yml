@@ -1,0 +1,36 @@
+name: PR Title Formatter
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  format-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set PR title from branch name
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            // Example branch: NS-12345-some-feature-description
+            const match = branch.match(/^(NS-\d+)[-_](.+)/);
+            if (match) {
+              const ticket = match[1];
+              // Replace dashes/underscores with spaces and capitalize first letter
+              const desc = match[2].replace(/[-_]+/g, ' ').replace(/^./, s => s.toUpperCase());
+              const newTitle = `${ticket} - ${desc}`;
+              if (context.payload.pull_request.title !== newTitle) {
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  title: newTitle
+                });
+                core.info(`PR title updated to: ${newTitle}`);
+              } else {
+                core.info('PR title already matches format.');
+              }
+            } else {
+              core.info('Branch name does not match required pattern: NS-XXXXX-description');
+            }
